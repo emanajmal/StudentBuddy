@@ -1,0 +1,70 @@
+---
+title: "Student Buddy Database"
+format: html
+editor: visual
+execute:
+  echo: true
+  warning: false
+  message: false
+server: shiny
+---
+
+```{r}
+library(shiny)
+library(DBI)
+library(RPostgres)
+library(dplyr)
+
+# Connect to PostgreSQL database
+con <- dbConnect(
+  RPostgres::Postgres(),
+  dbname = "studentbuddy",
+  host = "localhost",
+  port = 5432,
+  user = "postgres",
+  password = "Erdfcv12'"
+)
+
+# UI Inputs
+selectInput("student_id", "Select a Student:",
+            choices = dbGetQuery(con, "SELECT student_id FROM students")$student_id)
+
+actionButton("find_match", "Find Buddy")
+actionButton("assign_match", "Assign This Match")
+
+# Reactive match result
+match_result <- reactiveVal(NULL)
+
+# Find Match Logic
+observeEvent(input$find_match, {
+  sid <- input$student_id
+  student <- dbGetQuery(con, paste0("SELECT * FROM students WHERE student_id = ", sid))
+  
+  query1 <- paste0("SELECT * FROM buddies WHERE country = '", student$country, 
+                   "' OR language = '", student$language, "'")
+  buddy_match <- dbGetQuery(con, query1)
+  
+  if (nrow(buddy_match) == 0) {
+    query2 <- paste0("SELECT * FROM buddies WHERE program = '", student$program, "'")
+    buddy_match <- dbGetQuery(con, query2)
+  }
+  
+  match_result(buddy_match[1, , drop = FALSE])
+})
+
+# Display Matched Buddy
+renderTable({
+  match_result()
+})
+
+# Assign Match Logic
+observeEvent(input$assign_match, {
+  if (!is.null(match_result())) {
+    sid <- input$student_id
+    bid <- match_result()$buddy_id
+    insert_query <- paste0("INSERT INTO matches (student_id, buddy_id, status) VALUES (",
+                           sid, ", ", bid, ", 'Matched')")
+    dbExecute(con, insert_query)
+    showModal(modalDialog("Match saved successfully!", easyClose = TRUE))
+  }
+})

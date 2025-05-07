@@ -1,0 +1,13 @@
+name: studentbuddy
+title:
+username: emanajmal
+account: emanajmal
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 14654935
+bundleId: 10247829
+url: https://emanajmal.shinyapps.io/studentbuddy/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: .RData|export_to_sqlite.R|SBD.qmd
