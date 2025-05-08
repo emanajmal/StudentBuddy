@@ -107,13 +107,12 @@ server <- function(input, output, session) {
       showModal(modalDialog(
         title = "Student Not Found",
         "You must be registered in the system to find a Buddy.",
-        easyClose = TRUE,
-        footer = NULL
+        easyClose = TRUE
       ))
       return()
     }
     
-    matched_ids <- dbGetQuery(con, "SELECT buddy_id FROM matches WHERE status = 'Matched'")$buddy_id
+    matched_ids <- dbGetQuery(con, "SELECT buddy_id FROM matches")$buddy_id
     
     country_match <- dbGetQuery(con, paste0(
       "SELECT * FROM buddies WHERE country = '", input$student_country,
@@ -187,7 +186,14 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$assign_match, {
-    req(input$selected_match, input$student_name != "")
+    if (is.null(input$selected_match) || input$student_name == "") {
+      showModal(modalDialog(
+        title = "Selection Required",
+        "Please select a match before assigning.",
+        easyClose = TRUE
+      ))
+      return()
+    }
     
     sid_query <- paste0("SELECT student_id FROM students WHERE LOWER(name) = LOWER('", input$student_name, "') LIMIT 1")
     sid <- dbGetQuery(con, sid_query)$student_id[1]
@@ -195,15 +201,24 @@ server <- function(input, output, session) {
     buddy_data <- if (input$selected_match == "country") buddy_country() else buddy_program()
     bid <- buddy_data$buddy_id
     
-    dbExecute(con, paste0("INSERT INTO matches (student_id, buddy_id, status, match_type, matched_on) VALUES (", 
-                          sid, ", ", bid, ", 'Matched', '", input$selected_match, "', datetime('now'))"))
-    
-    showModal(modalDialog(
-      title = tags$h2("🎉 Match Successful!"),
-      tags$p("You have been successfully matched with your Buddy!"),
-      tags$p("📧 A confirmation email with their contact info has been sent. Your Buddy has also been notified."),
-      easyClose = TRUE
-    ))
+    tryCatch({
+      dbExecute(con, paste0(
+        "INSERT INTO matches (student_id, buddy_id, status) VALUES (",
+        sid, ", ", bid, ", 'Matched')"
+      ))
+      
+      showModal(modalDialog(
+        title = tags$h2("🎉 Match Successful!"),
+        tags$p("You have been successfully matched with your Buddy!"),
+        easyClose = TRUE
+      ))
+    }, error = function(e) {
+      showModal(modalDialog(
+        title = "Database Error",
+        paste("Failed to assign match:", e$message),
+        easyClose = TRUE
+      ))
+    })
   })
 }
 
